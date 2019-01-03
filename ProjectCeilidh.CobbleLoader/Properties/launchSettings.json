@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ProjectCeilidh.CobbleLoader": {
+      "commandName": "Project",
+      "commandLineArgs": "install \"http://google.com\""
+    }
+  }
+}
