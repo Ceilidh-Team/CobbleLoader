@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp2.1</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\ProjectCeilidh.CobbleLoader.Tests\ProjectCeilidh.CobbleLoader.Tests.csproj" />
+      <ProjectReference Include="..\ProjectCeilidh.CobbleLoader\ProjectCeilidh.CobbleLoader.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -4,7 +4,7 @@ using Xunit;
 
 namespace ProjectCeilidh.CobbleLoader.Tests
 {
-    public class PackageVersionTests
+    public class PluginVersionTests
     {
         [Theory]
         [InlineData("", false)]
@@ -23,7 +23,7 @@ namespace ProjectCeilidh.CobbleLoader.Tests
         [InlineData("x.0", false)]
         public void ParseTest(string value, bool success)
         {
-            Assert.Equal(success, PackageVersion.TryParse(value, out _));
+            Assert.Equal(success, PluginVersion.TryParse(value, out _));
         }
 
         [Theory]
@@ -40,8 +40,8 @@ namespace ProjectCeilidh.CobbleLoader.Tests
         [InlineData("1.0.0", "1.0.0", 0)]
         public void CompareTest(string value1, string value2, int value)
         {
-            Assert.True(PackageVersion.TryParse(value1, out var ver1));
-            Assert.True(PackageVersion.TryParse(value2, out var ver2));
+            Assert.True(PluginVersion.TryParse(value1, out var ver1));
+            Assert.True(PluginVersion.TryParse(value2, out var ver2));
 
             Assert.Equal(value, Math.Sign(ver1.CompareTo(ver2)));
             Assert.Equal(-value, Math.Sign(ver2.CompareTo(ver1)));
@@ -55,8 +55,8 @@ namespace ProjectCeilidh.CobbleLoader.Tests
         {
             var ver = MakeVersion(major, minor, patch);
 
-            Assert.True(PackageVersion.TryParse(ver.ToString(true), out var wildcardVersion));
-            Assert.True(PackageVersion.TryParse(ver.ToString(false), out var blankVersion));
+            Assert.True(PluginVersion.TryParse(ver.ToString(true), out var wildcardVersion));
+            Assert.True(PluginVersion.TryParse(ver.ToString(false), out var blankVersion));
 
             Assert.Equal(ver, wildcardVersion);
             Assert.Equal(ver, blankVersion);
@@ -71,9 +71,9 @@ namespace ProjectCeilidh.CobbleLoader.Tests
             var min = MakeVersion(minMajor, minMinor, minPatch);
             var max = MakeVersion(maxMajor, maxMinor, maxPatch);
 
-            var range = new PackageVersionRange(min, minInclusive, max, maxInclusive);
+            var range = new PluginVersionRange(min, minInclusive, max, maxInclusive);
 
-            Assert.True(PackageVersionRange.TryParse(range.ToString(), out var reverseRange));
+            Assert.True(PluginVersionRange.TryParse(range.ToString(), out var reverseRange));
 
             Assert.Equal(range, reverseRange);
         }
@@ -103,7 +103,7 @@ namespace ProjectCeilidh.CobbleLoader.Tests
         [InlineData("(,)", false)]
         public void RangeParseTest(string value, bool success)
         {
-            Assert.Equal(success, PackageVersionRange.TryParse(value, out _));
+            Assert.Equal(success, PluginVersionRange.TryParse(value, out _));
         }
 
         [Theory]
@@ -121,22 +121,22 @@ namespace ProjectCeilidh.CobbleLoader.Tests
         [InlineData("(,1)", "1.0.0", false)]
         public void RangeIncludesTest(string rangeValue, string verValue, bool success)
         {
-            Assert.True(PackageVersionRange.TryParse(rangeValue, out var range));
-            Assert.True(PackageVersion.TryParse(verValue, out var ver));
+            Assert.True(PluginVersionRange.TryParse(rangeValue, out var range));
+            Assert.True(PluginVersion.TryParse(verValue, out var ver));
 
             Assert.Equal(success, range.Includes(ver));
         }
 
-        private static PackageVersion MakeVersion(int? major, int? minor, int? patch)
+        private static PluginVersion MakeVersion(int? major, int? minor, int? patch)
         {
-            PackageVersion ver;
+            PluginVersion ver;
 
             if (!major.HasValue)
-                ver = new PackageVersion();
+                ver = new PluginVersion();
             else if (!minor.HasValue)
-                ver = new PackageVersion(major.Value);
+                ver = new PluginVersion(major.Value);
             else
-                ver = !patch.HasValue ? new PackageVersion(major.Value, minor.Value) : new PackageVersion(major.Value, minor.Value, patch.Value);
+                ver = !patch.HasValue ? new PluginVersion(major.Value, minor.Value) : new PluginVersion(major.Value, minor.Value, patch.Value);
 
             return ver;
         }

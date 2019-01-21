@@ -7,7 +7,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
     /// <summary>
     /// Represents the version of a package.
     /// </summary>
-    public readonly struct PackageVersion : IComparable, IComparable<PackageVersion>, IEquatable<PackageVersion>
+    public readonly struct PluginVersion : IComparable, IComparable<PluginVersion>, IEquatable<PluginVersion>
     {
         /// <summary>
         /// A regular expression that matches all valid version strings
@@ -17,11 +17,11 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// <summary>
         /// The minimum possible PackageVersion value.
         /// </summary>
-        public static readonly PackageVersion MinValue = new PackageVersion();
+        public static readonly PluginVersion MinValue = new PluginVersion();
         /// <summary>
         /// The maximum possible PackageVersion value.
         /// </summary>
-        public static readonly PackageVersion MaxValue = new PackageVersion(int.MaxValue, int.MaxValue, int.MaxValue);
+        public static readonly PluginVersion MaxValue = new PluginVersion(int.MaxValue, int.MaxValue, int.MaxValue);
 
         /// <summary>
         /// The major version of the package.
@@ -39,7 +39,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// </summary>
         public int? Patch { get; }
 
-        private PackageVersion(int? major, int? minor, int? patch)
+        private PluginVersion(int? major, int? minor, int? patch)
         {
             Major = major;
             Minor = minor;
@@ -50,7 +50,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// Construct a PackageVersion from a standand version.
         /// </summary>
         /// <param name="version">The version to take numbers from</param>
-        public PackageVersion(Version version) : this(version.Major < 0 ? default(int?) : version.Major, version.Minor < 0 ? default(int?) : version.Minor, version.Build < 0 ? default(int?) : version.Build)
+        public PluginVersion(Version version) : this(version.Major < 0 ? default(int?) : version.Major, version.Minor < 0 ? default(int?) : version.Minor, version.Build < 0 ? default(int?) : version.Build)
         {
 
         }
@@ -59,7 +59,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// Construct a PackageVersion with a fixed major version, but wildcard minor and patch versions.
         /// </summary>
         /// <param name="major">The major version.</param>
-        public PackageVersion(int major) : this(major, default(int?), default(int?))
+        public PluginVersion(int major) : this(major, default(int?), default(int?))
         {
         }
 
@@ -68,7 +68,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// </summary>
         /// <param name="major">The major version.</param>
         /// <param name="minor">The minor version.</param>
-        public PackageVersion(int major, int minor) : this(major, minor, default(int?))
+        public PluginVersion(int major, int minor) : this(major, minor, default(int?))
         {
         }
 
@@ -78,14 +78,14 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// <param name="major">The major version.</param>
         /// <param name="minor">The minor version.</param>
         /// <param name="patch">The patch version.</param>
-        public PackageVersion(int major, int minor, int patch) : this(new int?(major), new int?(minor), new int?(patch))
+        public PluginVersion(int major, int minor, int patch) : this(new int?(major), new int?(minor), new int?(patch))
         {
         }
         
         public int CompareTo(object obj) =>
-            obj is PackageVersion ver ? CompareTo(ver) : throw new ArgumentException();
+            obj is PluginVersion ver ? CompareTo(ver) : throw new ArgumentException();
 
-        public int CompareTo(PackageVersion other)
+        public int CompareTo(PluginVersion other)
         {
             if ((Major ?? -1) > (other.Major ?? -1)) return 1;
             if (Major == other.Major)
@@ -113,9 +113,9 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         }
 
         public override bool Equals(object obj) =>
-            obj is PackageVersion ver && Equals(ver);
+            obj is PluginVersion ver && Equals(ver);
 
-        public bool Equals(PackageVersion ver) => CompareTo(ver) == 0;
+        public bool Equals(PluginVersion ver) => CompareTo(ver) == 0;
 
         public override int GetHashCode() => (((Major ?? -1) & 0xFF) << 8 * 3) | (((Minor ?? -1) & 0xFF) << 8 * 2) | (Patch ?? -1) & 0xFFFF;
 
@@ -142,25 +142,25 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
             return builder.ToString();
         }
 
-        public static explicit operator Version(PackageVersion packVer) => new Version(packVer.Major ?? -1, packVer.Minor ?? -1, packVer.Patch ?? -1);
-        public static explicit operator PackageVersion(Version ver) => new PackageVersion(ver);
+        public static explicit operator Version(PluginVersion packVer) => new Version(packVer.Major ?? -1, packVer.Minor ?? -1, packVer.Patch ?? -1);
+        public static explicit operator PluginVersion(Version ver) => new PluginVersion(ver);
 
-        public static bool operator <(PackageVersion version1, PackageVersion version2) =>
+        public static bool operator <(PluginVersion version1, PluginVersion version2) =>
             version1.CompareTo(version2) < 0;
 
-        public static bool operator >(PackageVersion version1, PackageVersion version2) =>
+        public static bool operator >(PluginVersion version1, PluginVersion version2) =>
             version1.CompareTo(version2) > 0;
 
-        public static bool operator <=(PackageVersion version1, PackageVersion version2) =>
+        public static bool operator <=(PluginVersion version1, PluginVersion version2) =>
             version1.CompareTo(version2) <= 0;
 
-        public static bool operator >=(PackageVersion version1, PackageVersion version2) =>
+        public static bool operator >=(PluginVersion version1, PluginVersion version2) =>
             version1.CompareTo(version2) >= 0;
 
-        public static bool operator ==(PackageVersion version1, PackageVersion version2) =>
+        public static bool operator ==(PluginVersion version1, PluginVersion version2) =>
             version1.CompareTo(version2) == 0;
 
-        public static bool operator !=(PackageVersion version1, PackageVersion version2) =>
+        public static bool operator !=(PluginVersion version1, PluginVersion version2) =>
             version1.CompareTo(version2) != 0;
 
         /// <summary>
@@ -169,7 +169,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// <param name="value">The string to be converted.</param>
         /// <returns>The PackageVersion for the given string.</returns>
         /// <exception cref="FormatException">Thrown if <paramref name="value"/> could not be parsed.</exception>
-        public static PackageVersion Parse(string value) =>
+        public static PluginVersion Parse(string value) =>
             TryParse(value, out var version) ? version : throw new FormatException();
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
         /// <param name="value">The string to be converted.</param>
         /// <param name="version">The PackageVersion for the given string.</param>
         /// <returns>True if conversion succeeded, false otherwise.</returns>
-        public static bool TryParse(string value, out PackageVersion version)
+        public static bool TryParse(string value, out PluginVersion version)
         {
             version = default;
 
@@ -191,7 +191,7 @@ namespace ProjectCeilidh.CobbleLoader.Manifest
             if (!TryGetValue(match.Groups["minor"], out var minor)) return false;
             if (!TryGetValue(match.Groups["patch"], out var patch)) return false;
 
-            version = new PackageVersion(major, minor, patch);
+            version = new PluginVersion(major, minor, patch);
             return true;
 
             bool TryGetValue(Group group, out int? groupVal)

@@ -19,13 +19,15 @@ namespace ProjectCeilidh.CobbleLoader.Resource
             request.Method = WebRequestMethods.Http.Get;
             try
             {
-                using (var response = (HttpWebResponse) request.GetResponse())
+                var response = (HttpWebResponse) request.GetResponse();
+                if (!IsSuccessCode(response.StatusCode))
                 {
-                    if (!IsSuccessCode(response.StatusCode)) return false;
-
-                    stream = response.GetResponseStream();
-                    return true;
+                    response.Dispose();
+                    return false;
                 }
+
+                stream = new WebRequestStream(response);
+                return true;
             }
             catch (WebException)
             {
@@ -34,5 +36,64 @@ namespace ProjectCeilidh.CobbleLoader.Resource
         }
 
         private static bool IsSuccessCode(HttpStatusCode code) => (int) code >= 200 && (int) code < 300;
+        
+        private sealed class WebRequestStream : Stream
+        {
+            public override bool CanRead => _requestStream.CanRead;
+
+            public override bool CanSeek => _requestStream.CanSeek;
+
+            public override bool CanWrite => _requestStream.CanWrite;
+
+            public override long Length => _requestStream.Length;
+
+            public override long Position
+            {
+                get => _requestStream.Position;
+                set => _requestStream.Position = value;
+            }
+            
+            private readonly WebResponse _response;
+            private readonly Stream _requestStream;
+
+            public WebRequestStream(WebResponse response)
+            {
+                _response = response;
+                _requestStream = response.GetResponseStream();
+            }
+
+            public override void Flush()
+            {
+                _requestStream.Flush();
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                return _requestStream.Read(buffer, offset, count);
+            }
+
+            public override long Seek(long offset, SeekOrigin origin)
+            {
+                return _requestStream.Seek(offset, origin);
+            }
+
+            public override void SetLength(long value)
+            {
+                _requestStream.SetLength(value);
+            }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                _requestStream.Write(buffer, offset, count);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (!disposing) return;
+
+                _requestStream.Dispose();
+                _response.Dispose();
+            }
+        }
     }
 }
