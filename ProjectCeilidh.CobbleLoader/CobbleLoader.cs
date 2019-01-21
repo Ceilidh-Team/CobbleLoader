@@ -43,9 +43,9 @@ namespace ProjectCeilidh.CobbleLoader
             Directory.Delete(Path.Combine(PluginStorageDirectory, packageName), true);
         }
         
-        public bool TryInstall(Uri manifestUri)
+        public PluginInstallResultCode TryInstall(Uri manifestUri)
         {
-            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest)) return false;
+            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest)) return PluginInstallResultCode.InvalidManifest;
 
             var installPath = Path.Combine(PluginStorageDirectory, manifest.Name);
 
@@ -58,21 +58,24 @@ namespace ProjectCeilidh.CobbleLoader
             {
                 var fileUri = new Uri(file.Uri, UriKind.Absolute);
                 if (!_resourceLoaderController.TryOpenStream(fileUri, out var stream))
-                    return false;
+                    return PluginInstallResultCode.DownloadFailure;
 
+                var filePath = Path.Combine(installPath, file.Name ?? Path.GetFileName(fileUri.AbsolutePath));
                 using (stream)
                 using (var fileStream =
-                    File.Open(Path.Combine(installPath, file.Name ?? Path.GetFileName(fileUri.AbsolutePath)),
-                        FileMode.Create))
+                    File.Open(filePath, FileMode.Create))
                     stream.CopyTo(fileStream);
+
+                if (!file.VerifyHash(filePath))
+                    return PluginInstallResultCode.ValidateFailure;
             }
 
-            return true;
+            return PluginInstallResultCode.Success;
         }
         
-        public async Task<bool> TryInstallAsync(Uri manifestUri)
+        public async Task<PluginInstallResultCode> TryInstallAsync(Uri manifestUri)
         {
-            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest)) return false;
+            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest)) return PluginInstallResultCode.InvalidManifest;
 
             var installPath = Path.Combine(PluginStorageDirectory, manifest.Name);
 
@@ -85,16 +88,16 @@ namespace ProjectCeilidh.CobbleLoader
             {
                 var fileUri = new Uri(file.Uri, UriKind.Absolute);
                 if (!_resourceLoaderController.TryOpenStream(fileUri, out var stream))
-                    return false;
+                    return PluginInstallResultCode.DownloadFailure;
 
+                var filePath = Path.Combine(installPath, file.Name ?? Path.GetFileName(fileUri.AbsolutePath));
                 using (stream)
                 using (var fileStream =
-                    File.Open(Path.Combine(installPath, file.Name ?? Path.GetFileName(fileUri.AbsolutePath)),
-                        FileMode.Create))
+                    File.Open(filePath, FileMode.Create))
                     await stream.CopyToAsync(fileStream);
 
-                return true;
-            }))).Aggregate(true, (a, b) => a && b);
+                return file.VerifyHash(filePath) ? PluginInstallResultCode.Success : PluginInstallResultCode.ValidateFailure;
+            }))).Aggregate(PluginInstallResultCode.Success, (a, b) => a != PluginInstallResultCode.Success ? a : b);
     }
         
         public void LoadPlugins()
@@ -154,79 +157,70 @@ namespace ProjectCeilidh.CobbleLoader
         
         public IEnumerable<PluginUpdateResult> UpdateAll()
         {
-            foreach (var manifest in EnumerateInstalledPlugins())
+            return EnumerateInstalledPlugins().Select(manifest =>
             {
                 if (manifest.Update == null)
-                {
-                    yield return new PluginUpdateResult(manifest.Name,
+                    return new PluginUpdateResult(manifest.Name,
                         PluginUpdateResultCode.NotSupported);
-                    continue;
-                }
 
                 if (!TryLoadManifest(_resourceLoaderController, new Uri(manifest.Update, UriKind.Absolute),
                     out var updateManifest))
-                {
-                    yield return new PluginUpdateResult(manifest.Name,
+                    return new PluginUpdateResult(manifest.Name,
                         PluginUpdateResultCode.CheckFailure);
-                    continue;
-                }
 
                 if (!PluginVersion.TryParse(manifest.Version, out var oldVersion) ||
                     !PluginVersion.TryParse(updateManifest.Version, out var newVersion) ||
-                    oldVersion >= newVersion)
-                {
-                    yield return new PluginUpdateResult(manifest.Name,
-                        PluginUpdateResultCode.UpToDate);
-                    continue;
-                }
+                    manifest.Name != updateManifest.Name)
+                    return new PluginUpdateResult(manifest.Name,
+                        PluginUpdateResultCode.CheckFailure);
+
+                if (oldVersion >= newVersion)
+                    return new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.UpToDate);
 
                 Uninstall(manifest.Name);
 
-                yield return !TryInstall(new Uri(manifest.Update, UriKind.Absolute))
-                    ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure)
-                    : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success);
-            }
+                var installRes = TryInstall(new Uri(manifest.Update, UriKind.Absolute));
+
+                return installRes == PluginInstallResultCode.Success
+                    ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success, installRes)
+                    : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure, installRes);
+            });
         }
         
-        public IEnumerable<Task<PluginUpdateResult>> UpdateAllAsync()
+        public Task<PluginUpdateResult[]> UpdateAllAsync()
         {
-            foreach (var manifest in EnumerateInstalledPlugins())
+            return Task.WhenAll(EnumerateInstalledPlugins().Select(manifest =>
             {
                 if (manifest.Update == null)
-                {
-                    yield return Task.FromResult(new PluginUpdateResult(manifest.Name,
+                    return Task.FromResult(new PluginUpdateResult(manifest.Name,
                         PluginUpdateResultCode.NotSupported));
-                    continue;
-                }
 
                 if (!TryLoadManifest(_resourceLoaderController, new Uri(manifest.Update, UriKind.Absolute),
                     out var updateManifest))
-                {
-                    yield return Task.FromResult(new PluginUpdateResult(manifest.Name,
+                    return Task.FromResult(new PluginUpdateResult(manifest.Name,
                         PluginUpdateResultCode.CheckFailure));
-                    continue;
-                }
 
                 if (!PluginVersion.TryParse(manifest.Version, out var oldVersion) ||
                     !PluginVersion.TryParse(updateManifest.Version, out var newVersion) ||
-                    oldVersion >= newVersion)
-                {
-                    yield return Task.FromResult(new PluginUpdateResult(manifest.Name,
-                        PluginUpdateResultCode.UpToDate));
-                    continue;
-                }
+                    manifest.Name != updateManifest.Name)
+                    return Task.FromResult(new PluginUpdateResult(manifest.Name,
+                        PluginUpdateResultCode.CheckFailure));
 
-                yield return UpdatePlugin(); 
+                return newVersion > oldVersion
+                    ? UpdatePlugin()
+                    : Task.FromResult(new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.UpToDate));
 
                 async Task<PluginUpdateResult> UpdatePlugin()
                 {
                     Uninstall(manifest.Name);
 
-                    return !await TryInstallAsync(new Uri(manifest.Update, UriKind.Absolute))
-                        ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure)
-                        : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success);
+                    var installRes = await TryInstallAsync(new Uri(manifest.Update, UriKind.Absolute));
+
+                    return installRes == PluginInstallResultCode.Success
+                        ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success, installRes)
+                        : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure, installRes);
                 }
-            }
+            }));
         }
 
         private static bool TryLoadManifest(ResourceLoaderController res, Uri manifestUri, out PluginManifest manifest)
@@ -255,11 +249,13 @@ namespace ProjectCeilidh.CobbleLoader
         {
             public string PluginName { get; }
             public PluginUpdateResultCode ResultCode { get; }
+            public PluginInstallResultCode? InstallResultCode { get; }
 
-            internal PluginUpdateResult(string pluginName, PluginUpdateResultCode resultCode)
+            internal PluginUpdateResult(string pluginName, PluginUpdateResultCode resultCode, PluginInstallResultCode? installResultCode = default)
             {
                 PluginName = pluginName;
                 ResultCode = resultCode;
+                InstallResultCode = installResultCode;
             }
         }
 
@@ -270,6 +266,14 @@ namespace ProjectCeilidh.CobbleLoader
             CheckFailure,
             InstallFailure,
             UpToDate
+        }
+        
+        public enum PluginInstallResultCode
+        {
+            Success,
+            InvalidManifest,
+            DownloadFailure,
+            ValidateFailure
         }
     }
 }

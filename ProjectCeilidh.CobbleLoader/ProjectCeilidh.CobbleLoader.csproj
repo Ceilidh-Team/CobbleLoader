@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="ProjectCeilidh.Cobble" Version="1.2.2" />
+    <PackageReference Include="System.Memory" Version="4.5.2" />
   </ItemGroup>
 
 </Project>
