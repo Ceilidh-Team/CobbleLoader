@@ -29,8 +29,8 @@ namespace ProjectCeilidh.CobbleLoader.Tests
         {
             var context = new CobbleContext();
             var loader = new CobbleLoader(context, Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
-            Assert.True(await loader.TryInstallAsync(
-                new Uri("base64:" + Convert.ToBase64String(Encoding.ASCII.GetBytes(MANIFEST_XML)))) == CobbleLoader.PluginInstallResultCode.Success);
+            Assert.True((await loader.TryInstallAsync(
+                new Uri("base64:" + Convert.ToBase64String(Encoding.ASCII.GetBytes(MANIFEST_XML))))).ResultCode == CobbleLoader.PluginInstallResultCode.Success);
             Assert.Single(loader.EnumerateInstalledPlugins());
             Assert.True(File.ReadAllText(Path.Combine(loader.PluginStorageDirectory, "test-package", "README")).StartsWith("Linux kernel"));
             Assert.Equal("TEST TEXT", File.ReadAllText(Path.Combine(loader.PluginStorageDirectory, "test-package", "test.txt")));

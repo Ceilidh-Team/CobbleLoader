@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using ProjectCeilidh.Cobble;
 using ProjectCeilidh.CobbleLoader.Loader;
@@ -43,9 +44,10 @@ namespace ProjectCeilidh.CobbleLoader
             Directory.Delete(Path.Combine(PluginStorageDirectory, packageName), true);
         }
         
-        public PluginInstallResultCode TryInstall(Uri manifestUri)
+        public PluginInstallResult TryInstall(Uri manifestUri)
         {
-            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest)) return PluginInstallResultCode.InvalidManifest;
+            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest))
+                return new PluginInstallResult(null, PluginInstallResultCode.InvalidManifest);
 
             var installPath = Path.Combine(PluginStorageDirectory, manifest.Name);
 
@@ -58,7 +60,7 @@ namespace ProjectCeilidh.CobbleLoader
             {
                 var fileUri = new Uri(file.Uri, UriKind.Absolute);
                 if (!_resourceLoaderController.TryOpenStream(fileUri, out var stream))
-                    return PluginInstallResultCode.DownloadFailure;
+                    return new PluginInstallResult(manifest, PluginInstallResultCode.DownloadFailure);
 
                 var filePath = Path.Combine(installPath, file.Name ?? Path.GetFileName(fileUri.AbsolutePath));
                 using (stream)
@@ -67,15 +69,16 @@ namespace ProjectCeilidh.CobbleLoader
                     stream.CopyTo(fileStream);
 
                 if (!file.VerifyHash(filePath))
-                    return PluginInstallResultCode.ValidateFailure;
+                    return new PluginInstallResult(manifest, PluginInstallResultCode.ValidateFailure);
             }
 
-            return PluginInstallResultCode.Success;
+            return new PluginInstallResult(manifest, PluginInstallResultCode.Success);
         }
         
-        public async Task<PluginInstallResultCode> TryInstallAsync(Uri manifestUri)
+        public async Task<PluginInstallResult> TryInstallAsync(Uri manifestUri)
         {
-            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest)) return PluginInstallResultCode.InvalidManifest;
+            if (!TryLoadManifest(_resourceLoaderController, manifestUri, out var manifest))
+                return new PluginInstallResult(null, PluginInstallResultCode.InvalidManifest);
 
             var installPath = Path.Combine(PluginStorageDirectory, manifest.Name);
 
@@ -84,7 +87,7 @@ namespace ProjectCeilidh.CobbleLoader
             using (var manifestFile = File.Open(Path.Combine(installPath, "manifest.xml"), FileMode.Create))
                 manifest.Serialize(manifestFile);
 
-            return (await Task.WhenAll(manifest.Files.Select(async file =>
+            return new PluginInstallResult(manifest, (await Task.WhenAll(manifest.Files.Select(async file =>
             {
                 var fileUri = new Uri(file.Uri, UriKind.Absolute);
                 if (!_resourceLoaderController.TryOpenStream(fileUri, out var stream))
@@ -97,7 +100,7 @@ namespace ProjectCeilidh.CobbleLoader
                     await stream.CopyToAsync(fileStream);
 
                 return file.VerifyHash(filePath) ? PluginInstallResultCode.Success : PluginInstallResultCode.ValidateFailure;
-            }))).Aggregate(PluginInstallResultCode.Success, (a, b) => a != PluginInstallResultCode.Success ? a : b);
+            }))).Aggregate(PluginInstallResultCode.Success, (a, b) => a != PluginInstallResultCode.Success ? a : b));
     }
         
         public void LoadPlugins()
@@ -181,9 +184,9 @@ namespace ProjectCeilidh.CobbleLoader
 
                 var installRes = TryInstall(new Uri(manifest.Update, UriKind.Absolute));
 
-                return installRes == PluginInstallResultCode.Success
-                    ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success, installRes)
-                    : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure, installRes);
+                return installRes.ResultCode == PluginInstallResultCode.Success
+                    ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success, installRes.ResultCode)
+                    : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure, installRes.ResultCode);
             });
         }
         
@@ -216,9 +219,9 @@ namespace ProjectCeilidh.CobbleLoader
 
                     var installRes = await TryInstallAsync(new Uri(manifest.Update, UriKind.Absolute));
 
-                    return installRes == PluginInstallResultCode.Success
-                        ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success, installRes)
-                        : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure, installRes);
+                    return installRes.ResultCode == PluginInstallResultCode.Success
+                        ? new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.Success, installRes.ResultCode)
+                        : new PluginUpdateResult(manifest.Name, PluginUpdateResultCode.InstallFailure, installRes.ResultCode);
                 }
             }));
         }
@@ -245,7 +248,7 @@ namespace ProjectCeilidh.CobbleLoader
             context.AddManaged<DotNetModuleLoader>();
         }
         
-        public struct PluginUpdateResult
+        public readonly struct PluginUpdateResult
         {
             public string PluginName { get; }
             public PluginUpdateResultCode ResultCode { get; }
@@ -266,6 +269,18 @@ namespace ProjectCeilidh.CobbleLoader
             CheckFailure,
             InstallFailure,
             UpToDate
+        }
+
+        public readonly struct PluginInstallResult
+        {
+            public PluginManifest Manifest { get; }
+            public PluginInstallResultCode ResultCode { get; }
+
+            public PluginInstallResult(PluginManifest manifest, PluginInstallResultCode resultCode)
+            {
+                Manifest = manifest;
+                ResultCode = resultCode;
+            }
         }
         
         public enum PluginInstallResultCode
