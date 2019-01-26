@@ -1,0 +1,12 @@
+language: csharp
+solution: CobbleLoader.sln
+mono: none
+dotnet: 2.1.401
+os:
+  - linux
+  - osx
+install:
+  - dotnet restore
+script:
+  - dotnet build
+  - dotnet test ProjectCeilidh.CobbleLoader.Tests/ProjectCeilidh.CobbleLoader.Tests.csproj
